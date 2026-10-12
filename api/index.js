@@ -421,7 +421,7 @@ app.get('/configure', (req, res) => {
 app.get('/:config/manifest.json', (req, res) => {
   res.json({
     id: 'org.theposterswall.landscape',
-    version: '1.1.0',
+    version: '1.2.0',
     name: 'The Posters Wall',
     description:
       'Landscape Top 10 Movies and Series catalogs featuring Poster+ style rank numbers, official title logos, plain white network icons, and IMDb-RT-Genre meta text.',
@@ -435,14 +435,14 @@ app.get('/:config/manifest.json', (req, res) => {
       {
         type: 'movie',
         id: 'posterswall_top_movies',
-        name: 'The Posters Wall · Top 10 Movies',
+        name: 'Top 10 Movies',
         extra: [{ name: 'skip' }],
         behaviorHints: { landscape: true }
       },
       {
         type: 'series',
         id: 'posterswall_top_series',
-        name: 'The Posters Wall · Top 10 Series',
+        name: 'Top 10 Series',
         extra: [{ name: 'skip' }],
         behaviorHints: { landscape: true }
       }
@@ -579,7 +579,10 @@ app.get('/:config/catalog/:type/:id.json', async (req, res) => {
           name: `#${rank} ${item.title}`,
           poster: `${base}/landscape-card/${rank}?${q}`,
           description: item.overview,
-          behaviorHints: { defaultVideoId: item.id }
+          behaviorHints: {
+            defaultVideoId: item.id,
+            landscape: true
+          }
         };
       });
 
@@ -647,30 +650,35 @@ app.get('/landscape-card/:rank', async (req, res) => {
 
         composites.push({
           input: resizedLogo,
-          top: Math.floor(height * 0.55),
-          left: Math.floor(width * 0.28)
+          top: Math.floor(height * 0.42),
+          left: Math.floor(width * 0.29)
         });
       } catch {
         // logo failure is non-fatal
       }
     }
 
+    // Safe-zone layout: keeps rank + meta inside the center strip so they
+    // survive a portrait center-crop on clients that ignore landscape: true.
     const svgOverlay = Buffer.from(`
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
         <style>
           .num-bg { font-family: 'Helvetica Neue','Arial Black',sans-serif; font-size: ${fontLarge}px; font-weight: 900; fill: none; stroke: #000; stroke-width: 18px; }
           .num-fg { font-family: 'Helvetica Neue','Arial Black',sans-serif; font-size: ${fontLarge}px; font-weight: 900; fill: none; stroke: #FFF; stroke-width: 8px; }
-          .meta   { font-family: 'Arial',sans-serif; font-size: 14.5px; font-weight: 800; fill: #FFFFFF; letter-spacing: .5px; text-anchor: end; }
+          .meta   { font-family: 'Arial',sans-serif; font-size: 16px; font-weight: 800; fill: #FFFFFF; letter-spacing: .5px; text-anchor: middle; filter: drop-shadow(0 1.5px 2px rgba(0,0,0,.85)); }
         </style>
 
+        <!-- Network badge (top-right, survives most crops) -->
         <g transform="translate(${width - 45}, 16)" opacity="0.92">
           ${networkSvg}
         </g>
 
-        <text x="12" y="${height - 20}" class="num-bg">${rank}</text>
-        <text x="12" y="${height - 20}" class="num-fg">${rank}</text>
+        <!-- Rank number, moved into center-left safe zone -->
+        <text x="${Math.floor(width * 0.28)}" y="${height - 20}" class="num-bg">${rank}</text>
+        <text x="${Math.floor(width * 0.28)}" y="${height - 20}" class="num-fg">${rank}</text>
 
-        <text x="${width - 15}" y="${height - 21}" class="meta">${imdb}-${rt}-${genre}</text>
+        <!-- Meta strip, centered under the safe zone -->
+        <text x="${Math.floor(width * 0.72)}" y="${height - 21}" class="meta">${imdb}-${rt}-${genre}</text>
       </svg>
     `);
 
