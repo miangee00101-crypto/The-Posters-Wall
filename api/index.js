@@ -6,7 +6,7 @@ const sharp = require('sharp');
 const app = express();
 app.use(cors());
 
-// White network SVGs with no backgrounds
+// White network SVGs with no background/fill highlights
 const WHITE_BRAND_SVGS = {
   'netflix': `<path fill="#FFFFFF" d="M3.5 0h2.9v27H3.5V0zm5.1 0h2.9v27H8.6V0zm5.2 0h2.9v27h-2.9V0zm-10.3 0 10.3 27h2.8L4.3 0H3.5z"/>`,
   'hbo': `<g fill="#FFFFFF"><path d="M4 4h4v6H4V4zm0 10h4v6H4v-6zm9.2-10h4.3c2.4 0 4.3 1.9 4.3 4.3v1.4c0 2.4-1.9 4.3-4.3 4.3h-4.3V4zm4.3 12c1.3 0 2.3-1 2.3-2.3v-1.4c0-1.3-1-2.3-2.3-2.3h-4.3v6h4.3zm9.5-12c2.8 0 5 2.2 5 5v10c0 2.8-2.2 5-5 5s-5-2.2-5-5V9c0-2.8 2.2-5 5-5zm0 4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1 1 1 0 0 0 1-1V9a1 1 0 0 0-1-1z"/></g>`,
@@ -15,49 +15,258 @@ const WHITE_BRAND_SVGS = {
   'default': `<circle cx="12" cy="12" r="9" fill="none" stroke="#FFFFFF" stroke-width="2"/>`
 };
 
-// --- CONFIGURATION WEB PAGE ROUTE ---
+// API Key Verification Endpoint
+app.get('/api/verify', async (req, res) => {
+  const { type, key } = req.query;
+  if (!key) return res.json({ valid: false, message: 'Key missing' });
+
+  try {
+    if (type === 'tmdb') {
+      const resp = await axios.get(`https://api.themoviedb.org/3/authentication?api_key=${key}`);
+      return res.json({ valid: resp.data.success === true });
+    } else if (type === 'mdblist') {
+      const resp = await axios.get(`https://api.mdblist.com/?apikey=${key}&tmdb=550`);
+      return res.json({ valid: !resp.data.error });
+    }
+    res.json({ valid: false });
+  } catch (err) {
+    res.json({ valid: false });
+  }
+});
+
+// --- MODERN CONFIGURATION PAGE ---
 app.get('/', (req, res) => res.redirect('/configure'));
 app.get('/configure', (req, res) => {
   const html = `
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
-    <title>The Posters Wall Configuration</title>
+    <meta charset="UTF-8">
+    <title>The Posters Wall - Stremio Addon Configuration</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0f11; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-      .card { background: #18181c; border: 1px solid #282830; border-radius: 12px; padding: 2rem; width: 100%; max-width: 420px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-      h2 { margin-top: 0; color: #e50914; font-size: 1.5rem; text-align: center; }
-      p { color: #aaa; font-size: 0.9rem; margin-bottom: 1.5rem; text-align: center; }
-      label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: #ddd; }
-      input { width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid #333; background: #09090b; color: #fff; box-sizing: border-box; margin-bottom: 1.2rem; font-size: 0.9rem; }
-      input:focus { border-color: #e50914; outline: none; }
-      button { width: 100%; padding: 0.85rem; border-radius: 6px; border: none; background: #e50914; color: #fff; font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
-      button:hover { background: #b80710; }
+      :root {
+        --bg: #090a0f;
+        --card-bg: rgba(18, 20, 29, 0.75);
+        --accent: #e50914;
+        --accent-hover: #f6121d;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f3f4f6;
+        --text-muted: #9ca3af;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+      body {
+        background: var(--bg);
+        background-image: 
+          radial-gradient(at 10% 10%, rgba(229, 9, 20, 0.12) 0px, transparent 50%),
+          radial-gradient(at 90% 90%, rgba(59, 130, 246, 0.08) 0px, transparent 50%);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 2rem 1rem;
+      }
+      .container {
+        width: 100%;
+        max-width: 480px;
+        background: var(--card-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 2.25rem;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      }
+      .header { text-align: center; margin-bottom: 1.75rem; }
+      .header h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(135deg, #fff 30%, #a1a1aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .header p { color: var(--text-muted); font-size: 0.875rem; margin-top: 0.4rem; }
+      
+      /* Live Preview Box */
+      .preview-box {
+        margin-bottom: 1.75rem;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        position: relative;
+        background: #121216;
+      }
+      .preview-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 0.6rem 0.8rem; background: rgba(0,0,0,0.4); }
+      .preview-card {
+        position: relative;
+        width: 100%;
+        height: 180px;
+        background: url('https://image.tmdb.org/t/p/w780/628M2138L4C28R4f028N2M.jpg') center/cover no-repeat;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 12px;
+      }
+      .preview-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%);
+      }
+      .top-row { position: relative; z-index: 2; display: flex; justify-content: flex-end; }
+      .bottom-row { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: flex-end; }
+      .rank-num { font-size: 3.8rem; font-weight: 900; line-height: 0.8; -webkit-text-stroke: 2px #fff; color: transparent; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+      .meta-str { font-size: 0.85rem; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
+
+      .form-group { margin-bottom: 1.25rem; }
+      label { display: block; font-size: 0.825rem; font-weight: 600; margin-bottom: 0.4rem; color: #d1d5db; }
+      .input-wrapper { position: relative; display: flex; align-items: center; }
+      input {
+        width: 100%;
+        padding: 0.75rem 4rem 0.75rem 0.85rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(10, 11, 16, 0.8);
+        color: #fff;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+      }
+      input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.2); }
+      
+      .verify-btn {
+        position: absolute;
+        right: 6px;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+        border: none;
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .verify-btn:hover { background: rgba(255,255,255,0.2); }
+      .status-badge { font-size: 0.75rem; margin-top: 0.35rem; display: block; font-weight: 500; }
+      .valid { color: #10b981; }
+      .invalid { color: #ef4444; }
+
+      .btn-group { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.75rem; }
+      .btn {
+        width: 100%;
+        padding: 0.85rem;
+        border-radius: 10px;
+        border: none;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        transition: transform 0.15s ease, background 0.2s ease;
+      }
+      .btn:active { transform: scale(0.98); }
+      .btn-primary { background: var(--accent); color: #fff; }
+      .btn-primary:hover { background: var(--accent-hover); }
+      .btn-secondary { background: rgba(255, 255, 255, 0.06); color: #e4e4e7; border: 1px solid var(--border); }
+      .btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
     </style>
   </head>
   <body>
-    <div class="card">
-      <h2>The Posters Wall</h2>
-      <p>Configure your API keys to generate your Stremio Addon manifest link.</p>
-      <label>TMDB API Key (Required)</label>
-      <input type="text" id="tmdb" placeholder="e.g. 1234567890abcdef..." />
-      
-      <label>MDBList API Key (Optional for RT/IMDb scores)</label>
-      <input type="text" id="mdblist" placeholder="e.g. mdblist_key..." />
-      
-      <button onclick="install()">Install to Stremio</button>
+    <div class="container">
+      <div class="header">
+        <h1>The Posters Wall</h1>
+        <p>Landscape Top 10 Stremio Addon</p>
+      </div>
+
+      <!-- Live Poster Preview -->
+      <div class="preview-box">
+        <div class="preview-title">In-App Poster Preview</div>
+        <div class="preview-card">
+          <div class="top-row">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#FFF"><path d="M3.5 0h2.9v27H3.5V0zm5.1 0h2.9v27H8.6V0zm5.2 0h2.9v27h-2.9V0zm-10.3 0 10.3 27h2.8L4.3 0H3.5z"/></svg>
+          </div>
+          <div class="bottom-row">
+            <div class="rank-num">1</div>
+            <div class="meta-str">7.8-84-Action</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>TMDB API Key (Required)</label>
+        <div class="input-wrapper">
+          <input type="text" id="tmdb" placeholder="Paste TMDB API Key..." />
+          <button class="verify-btn" onclick="verifyKey('tmdb')">Verify</button>
+        </div>
+        <span id="tmdb-status" class="status-badge"></span>
+      </div>
+
+      <div class="form-group">
+        <label>MDBList API Key (Optional for IMDb / RT Scores)</label>
+        <div class="input-wrapper">
+          <input type="text" id="mdblist" placeholder="Paste MDBList API Key..." />
+          <button class="verify-btn" onclick="verifyKey('mdblist')">Verify</button>
+        </div>
+        <span id="mdblist-status" class="status-badge"></span>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="installAddon()">Install to Stremio</button>
+        <button class="btn btn-secondary" onclick="copyManifestUrl()">Copy Manifest URL</button>
+      </div>
     </div>
 
     <script>
-      function install() {
+      async function verifyKey(type) {
+        const val = document.getElementById(type).value.trim();
+        const badge = document.getElementById(type + '-status');
+        if (!val) {
+          badge.className = 'status-badge invalid';
+          badge.innerText = 'Please enter a key first.';
+          return;
+        }
+        badge.className = 'status-badge';
+        badge.innerText = 'Checking...';
+
+        try {
+          const res = await fetch('/api/verify?type=' + type + '&key=' + encodeURIComponent(val));
+          const data = await res.json();
+          if (data.valid) {
+            badge.className = 'status-badge valid';
+            badge.innerText = '✓ Valid API Key';
+          } else {
+            badge.className = 'status-badge invalid';
+            badge.innerText = '✗ Invalid API Key';
+          }
+        } catch (e) {
+          badge.className = 'status-badge invalid';
+          badge.innerText = '✗ Verification failed';
+        }
+      }
+
+      function getManifestUrl() {
         const tmdb = document.getElementById('tmdb').value.trim();
         const mdblist = document.getElementById('mdblist').value.trim();
-        if (!tmdb) return alert('Please enter your TMDB API key.');
-        
+        if (!tmdb) {
+          alert('TMDB API Key is required.');
+          return null;
+        }
         const config = btoa(JSON.stringify({ tmdb, mdblist }));
-        const manifestUrl = window.location.origin + '/' + config + '/manifest.json';
-        window.location.href = 'stremio://' + manifestUrl.replace(/^https?:\\/\\//, '');
+        return window.location.origin + '/' + config + '/manifest.json';
+      }
+
+      function installAddon() {
+        const url = getManifestUrl();
+        if (url) {
+          window.location.href = 'stremio://' + url.replace(/^https?:\\/\\//, '');
+        }
+      }
+
+      function copyManifestUrl() {
+        const url = getManifestUrl();
+        if (url) {
+          navigator.clipboard.writeText(url).then(() => {
+            alert('Manifest URL copied to clipboard!');
+          });
+        }
       }
     </script>
   </body>
@@ -66,7 +275,6 @@ app.get('/configure', (req, res) => {
   res.send(html);
 });
 
-// Helper to decode user config from base64 URL params
 function parseConfig(encoded) {
   try {
     return JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
@@ -75,7 +283,7 @@ function parseConfig(encoded) {
   }
 }
 
-// --- DYNAMIC MANIFEST WITH EMBEDDED CONFIG ---
+// --- MANIFEST ROUTE ---
 app.get('/:config/manifest.json', (req, res) => {
   res.json({
     id: 'org.theposterswall.landscape',
